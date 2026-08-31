@@ -1,17 +1,29 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
-  Home, Users, MapPin, Camera, User, Flame, Plus, Heart,
-  MessageCircle, Share2, ChevronLeft, X, Check, Search,
+  Home, Users, MapPin, Camera, User, Plus, Heart,
+  MessageCircle, Share2, ChevronLeft, Check, Search,
   Leaf, Zap, Wheat, Droplet, ChevronRight, Calendar, Star
 } from "lucide-react";
 
+// ---------- HELPERS ----------
+
+function mapsUrl(query) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    query + ", Chihuahua, Chihuahua, México"
+  )}`;
+}
+
+function openMaps(query) {
+  window.open(mapsUrl(query), "_blank", "noopener,noreferrer");
+}
+
 // ---------- MOCK DATA ----------
 const FRIENDS = [
-  { name: "Vale", color: "#008471" },
-  { name: "Diego", color: "#898E46" },
-  { name: "Ana", color: "#C45F3F" },
-  { name: "Luis", color: "#80B0E8" },
-  { name: "Mar", color: "#F29CC3" },
+  { name: "Vale", color: "#008471", bio: "Le encanta improvisar con lo que hay en el refri.", recipes: 9 },
+  { name: "Diego", color: "#898E46", bio: "Siempre trae algo nuevo del tianguis los sábados.", recipes: 6 },
+  { name: "Ana", color: "#C45F3F", bio: "Organiza las cenas de mesa de los jueves.", recipes: 4 },
+  { name: "Luis", color: "#80B0E8", bio: "Fan del sotol y las recetas con nuez pecana.", recipes: 3 },
+  { name: "Mar", color: "#F29CC3", bio: "Está aprendiendo a cocinar con chile pasado.", recipes: 7 },
 ];
 
 const FEED = [
@@ -50,11 +62,43 @@ const FEED = [
   },
 ];
 
+// Real Chihuahua, Chih. venues — tap any of these to open Google Maps
 const SPOTS = [
-  { name: "Mercado La Esperanza", type: "Mercado local", tag: "Frutas y verduras", dist: "0.6 km" },
-  { name: "Taller: Cocina con lo de temporada", type: "Taller", tag: "Este sábado, 11:00", dist: "1.2 km" },
-  { name: "Huerto Comunitario Sur", type: "Huerto", tag: "Venta directa", dist: "1.8 km" },
-  { name: "Tianguis Orgánico Centro", type: "Mercado local", tag: "Miércoles y sábado", dist: "2.4 km" },
+  {
+    name: "Chihuahua Local",
+    type: "Tienda de productores",
+    tag: "Miel, quesos y nuez pecana de la región",
+    dist: "Zona Centro",
+    query: "Chihuahua Local, Calle Guadalupe Victoria 100, Zona Centro",
+  },
+  {
+    name: "Tianguis de Productores Locales",
+    type: "Tianguis municipal",
+    tag: "Frutas, verduras y alimentos preparados directo del productor",
+    dist: "Sede rotativa",
+    query: "Tianguis de Productores Locales, Municipio de Chihuahua",
+  },
+  {
+    name: "Plaza del Ángel",
+    type: "Plaza / mercado de temporada",
+    tag: "Sede de ferias agroalimentarias de fin de semana",
+    dist: "Zona Centro",
+    query: "Plaza del Ángel Chihuahua",
+  },
+  {
+    name: "La Rodadora",
+    type: "Espacio interactivo familiar",
+    tag: "Talleres y actividades para todas las edades",
+    dist: "Parque Fundadores",
+    query: "La Rodadora Espacio Interactivo Chihuahua",
+  },
+  {
+    name: "Calle Libertad, Centro Histórico",
+    type: "Zona comercial",
+    tag: "Antojitos y productos locales en pleno centro",
+    dist: "Centro",
+    query: "Calle Libertad Centro Histórico Chihuahua",
+  },
 ];
 
 const NUTRIENTS = [
@@ -73,9 +117,10 @@ const MY_RECIPES = [
 
 // ---------- SHARED UI BITS ----------
 
-function PlateFrame({ color, size = 40, children }) {
+function PlateFrame({ color, size = 40, children, onClick }) {
   return (
     <div
+      onClick={onClick}
       style={{
         width: size,
         height: size,
@@ -89,6 +134,7 @@ function PlateFrame({ color, size = 40, children }) {
         fontFamily: "Manrope, sans-serif",
         flexShrink: 0,
         boxShadow: "0 2px 6px rgba(43,38,32,0.18)",
+        cursor: onClick ? "pointer" : "default",
       }}
     >
       {children}
@@ -120,9 +166,122 @@ function ScreenHeader({ title, subtitle }) {
   );
 }
 
+// ---------- FRIEND PROFILE MODAL ----------
+
+function FriendModal({ friend, onClose }) {
+  if (!friend) return null;
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "absolute",
+        inset: 0,
+        background: "rgba(36,30,27,0.55)",
+        display: "flex",
+        alignItems: "flex-end",
+        zIndex: 50,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          background: "#FAF6ED",
+          borderRadius: "24px 24px 0 0",
+          padding: "22px 22px 30px",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ width: 36, height: 4, borderRadius: 4, background: "#D6CDB8", margin: "0 auto 18px" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <PlateFrame color={friend.color} size={58}>{friend.name[0]}</PlateFrame>
+          <div>
+            <p style={{ margin: 0, fontFamily: "Space Grotesk, sans-serif", fontSize: 19, fontWeight: 600, color: "#241E1B" }}>
+              {friend.name}
+            </p>
+            <p style={{ margin: "2px 0 0", fontFamily: "Manrope, sans-serif", fontSize: 12.5, color: "#79694F" }}>
+              {friend.recipes ?? 0} recetas compartidas
+            </p>
+          </div>
+        </div>
+        {friend.bio && (
+          <p style={{ margin: "16px 0 0", fontFamily: "Manrope, sans-serif", fontSize: 13, color: "#5A5347", lineHeight: 1.5 }}>
+            {friend.bio}
+          </p>
+        )}
+        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: "12px 0",
+              borderRadius: 14,
+              border: "1px solid #EDE6D6",
+              background: "#FFFFFF",
+              fontFamily: "Manrope, sans-serif",
+              fontWeight: 600,
+              fontSize: 13,
+              color: "#241E1B",
+              cursor: "pointer",
+            }}
+          >
+            Ver recetas
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: "12px 0",
+              borderRadius: 14,
+              border: "none",
+              background: "#008471",
+              fontFamily: "Manrope, sans-serif",
+              fontWeight: 600,
+              fontSize: 13,
+              color: "#FAF6ED",
+              cursor: "pointer",
+            }}
+          >
+            Planear cena
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- TOAST ----------
+
+function Toast({ message }) {
+  if (!message) return null;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 94,
+        left: "50%",
+        transform: "translateX(-50%)",
+        background: "#241E1B",
+        color: "#FAF6ED",
+        padding: "9px 16px",
+        borderRadius: 20,
+        fontFamily: "Manrope, sans-serif",
+        fontSize: 12.5,
+        fontWeight: 600,
+        zIndex: 60,
+        whiteSpace: "nowrap",
+        boxShadow: "0 6px 16px rgba(43,38,32,0.3)",
+      }}
+    >
+      {message}
+    </div>
+  );
+}
+
 // ---------- HOME ----------
 
-function HomeScreen() {
+function HomeScreen({ onFriendClick, onInvite }) {
+  const featuredSpot = SPOTS[3]; // La Rodadora
   return (
     <div style={{ paddingBottom: 100 }}>
       <ScreenHeader title="Hola, Alma" subtitle="Jueves 27 de agosto" />
@@ -172,13 +331,16 @@ function HomeScreen() {
         <div style={{ display: "flex", gap: 14, padding: "0 20px", overflowX: "auto" }}>
           {FRIENDS.map((f) => (
             <div key={f.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              <PlateFrame color={f.color} size={52}>
+              <PlateFrame color={f.color} size={52} onClick={() => onFriendClick(f)}>
                 {f.name[0]}
               </PlateFrame>
               <span style={{ fontSize: 11.5, color: "#5A5347", fontFamily: "Manrope, sans-serif" }}>{f.name}</span>
             </div>
           ))}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <div
+            onClick={onInvite}
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0, cursor: "pointer" }}
+          >
             <div style={{ width: 52, height: 52, borderRadius: "50%", border: "2px dashed #D6CDB8", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Plus size={18} color="#79694F" />
             </div>
@@ -204,12 +366,15 @@ function HomeScreen() {
         </div>
       </div>
 
-      {/* Upcoming */}
+      {/* Upcoming — links out to real venue on Google Maps */}
       <div style={{ margin: "0 20px" }}>
         <p style={{ color: "#241E1B", fontSize: 14.5, fontFamily: "Manrope, sans-serif", fontWeight: 600, marginBottom: 10 }}>
           Cerca de ti
         </p>
-        <div style={{ background: "#FFFFFF", border: "1px solid #EDE6D6", borderRadius: 16, padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
+        <div
+          onClick={() => openMaps(featuredSpot.query)}
+          style={{ background: "#FFFFFF", border: "1px solid #EDE6D6", borderRadius: 16, padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+        >
           <div style={{ width: 44, height: 44, borderRadius: 12, background: "#00847122", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Calendar size={20} color="#8C3D28" />
           </div>
@@ -218,7 +383,7 @@ function HomeScreen() {
               Taller de temporada
             </p>
             <p style={{ margin: "2px 0 0", fontFamily: "Manrope, sans-serif", fontSize: 12, color: "#79694F" }}>
-              Sábado · Mercado La Esperanza
+              Sábado · {featuredSpot.name}
             </p>
           </div>
           <ChevronRight size={18} color="#D6CDB8" />
@@ -230,14 +395,17 @@ function HomeScreen() {
 
 // ---------- SOCIAL ----------
 
-function SocialScreen() {
+function SocialScreen({ onFriendClick, onShare }) {
   return (
     <div style={{ paddingBottom: 100 }}>
       <ScreenHeader title="Social" subtitle="Lo que tu mesa está cocinando" />
       <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 16 }}>
         {FEED.map((post, i) => (
           <div key={i} style={{ background: "#FFFFFF", border: "1px solid #EDE6D6", borderRadius: 20, overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
+            <div
+              onClick={() => onFriendClick({ name: post.user, color: post.color, bio: `Compartió "${post.dish}" ${post.time}.` })}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}
+            >
               <PlateFrame color={post.color} size={34}>
                 {post.user[0]}
               </PlateFrame>
@@ -265,7 +433,7 @@ function SocialScreen() {
                 <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "#5A5347", fontFamily: "Manrope, sans-serif" }}>
                   <MessageCircle size={16} color="#898E46" /> {post.comments}
                 </span>
-                <span style={{ marginLeft: "auto" }}>
+                <span onClick={onShare} style={{ marginLeft: "auto", cursor: "pointer" }}>
                   <Share2 size={16} color="#79694F" />
                 </span>
               </div>
@@ -281,7 +449,20 @@ function SocialScreen() {
 
 function MapScreen() {
   const [filter, setFilter] = useState("Todos");
+  const [query, setQuery] = useState("");
   const filters = ["Todos", "Mercados", "Talleres"];
+
+  const matchesFilter = (s) => {
+    if (filter === "Todos") return true;
+    if (filter === "Mercados") return /mercado|tianguis|tienda|plaza|comercial/i.test(s.type);
+    if (filter === "Talleres") return /taller|interactivo/i.test(s.type);
+    return true;
+  };
+
+  const visibleSpots = SPOTS.filter(
+    (s) => matchesFilter(s) && (s.name + s.type + s.tag).toLowerCase().includes(query.toLowerCase())
+  );
+
   return (
     <div style={{ paddingBottom: 100 }}>
       <ScreenHeader title="Mapa local" subtitle="Talleres y buena comida cerca de ti" />
@@ -289,7 +470,8 @@ function MapScreen() {
       <div style={{ margin: "0 20px 14px", position: "relative" }}>
         <Search size={16} color="#79694F" style={{ position: "absolute", left: 14, top: 13 }} />
         <input
-          readOnly
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar mercado, taller o ingrediente"
           style={{
             width: "100%",
@@ -305,7 +487,7 @@ function MapScreen() {
         />
       </div>
 
-      {/* Stylized map */}
+      {/* Stylized map — pins open the real place in Google Maps */}
       <div style={{ margin: "0 20px 16px", borderRadius: 20, overflow: "hidden", height: 170, position: "relative", background: "#EFE7D2" }}>
         <svg width="100%" height="100%" viewBox="0 0 340 170" preserveAspectRatio="none">
           <rect width="340" height="170" fill="#F0EAD8" />
@@ -317,27 +499,35 @@ function MapScreen() {
           <circle cx="250" cy="120" r="30" fill="#C3C88B" opacity="0.6" />
         </svg>
         {[
-          { x: "28%", y: "38%", c: "#008471" },
-          { x: "62%", y: "62%", c: "#898E46" },
-          { x: "78%", y: "30%", c: "#C45F3F" },
-          { x: "45%", y: "75%", c: "#008471" },
-        ].map((p, i) => (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              left: p.x,
-              top: p.y,
-              width: 22,
-              height: 22,
-              borderRadius: "50% 50% 50% 0",
-              background: p.c,
-              transform: "rotate(-45deg)",
-              boxShadow: "0 2px 5px rgba(43,38,32,0.25)",
-              border: "2px solid #FAF6ED",
-            }}
-          />
-        ))}
+          { x: "18%", y: "34%", c: "#008471" },
+          { x: "52%", y: "58%", c: "#898E46" },
+          { x: "70%", y: "26%", c: "#C45F3F" },
+          { x: "38%", y: "72%", c: "#008471" },
+          { x: "82%", y: "62%", c: "#898E46" },
+        ].map((p, i) => {
+          const spot = SPOTS[i];
+          if (!spot) return null;
+          return (
+            <div
+              key={i}
+              onClick={() => openMaps(spot.query)}
+              title={spot.name}
+              style={{
+                position: "absolute",
+                left: p.x,
+                top: p.y,
+                width: 22,
+                height: 22,
+                borderRadius: "50% 50% 50% 0",
+                background: p.c,
+                transform: "rotate(-45deg)",
+                boxShadow: "0 2px 5px rgba(43,38,32,0.25)",
+                border: "2px solid #FAF6ED",
+                cursor: "pointer",
+              }}
+            />
+          );
+        })}
       </div>
 
       <div style={{ display: "flex", gap: 8, padding: "0 20px", marginBottom: 14 }}>
@@ -363,8 +553,17 @@ function MapScreen() {
       </div>
 
       <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-        {SPOTS.map((s) => (
-          <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 12, background: "#FFFFFF", border: "1px solid #EDE6D6", borderRadius: 16, padding: 12 }}>
+        {visibleSpots.length === 0 && (
+          <p style={{ fontFamily: "Manrope, sans-serif", fontSize: 12.5, color: "#79694F", textAlign: "center", padding: "10px 0" }}>
+            Nada por aquí — prueba otra búsqueda.
+          </p>
+        )}
+        {visibleSpots.map((s) => (
+          <div
+            key={s.name}
+            onClick={() => openMaps(s.query)}
+            style={{ display: "flex", alignItems: "center", gap: 12, background: "#FFFFFF", border: "1px solid #EDE6D6", borderRadius: 16, padding: 12, cursor: "pointer" }}
+          >
             <div style={{ width: 42, height: 42, borderRadius: 12, background: "#898E4622", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <MapPin size={19} color="#5F6530" />
             </div>
@@ -372,7 +571,7 @@ function MapScreen() {
               <p style={{ margin: 0, fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: 13, color: "#241E1B" }}>{s.name}</p>
               <p style={{ margin: "2px 0 0", fontFamily: "Manrope, sans-serif", fontSize: 11.5, color: "#79694F" }}>{s.tag}</p>
             </div>
-            <span style={{ fontSize: 11, fontFamily: "Manrope, sans-serif", color: "#79694F" }}>{s.dist}</span>
+            <span style={{ fontSize: 11, fontFamily: "Manrope, sans-serif", color: "#79694F", flexShrink: 0 }}>{s.dist}</span>
           </div>
         ))}
       </div>
@@ -704,7 +903,14 @@ const TABS = [
 
 export default function MesaLocalPrototype() {
   const [tab, setTab] = useState("home");
+  const [activeFriend, setActiveFriend] = useState(null);
+  const [toast, setToast] = useState("");
   const isDark = tab === "scan";
+
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(""), 1800);
+  }
 
   return (
     <div style={{ display: "flex", justifyContent: "center", padding: "28px 12px", background: "#EDE6D6", minHeight: "100%", fontFamily: "Manrope, sans-serif" }}>
@@ -730,8 +936,18 @@ export default function MesaLocalPrototype() {
 
         {/* scroll content */}
         <div style={{ height: "100%", overflowY: "auto" }}>
-          {tab === "home" && <HomeScreen />}
-          {tab === "social" && <SocialScreen />}
+          {tab === "home" && (
+            <HomeScreen
+              onFriendClick={setActiveFriend}
+              onInvite={() => showToast("Invitación enviada 🎉")}
+            />
+          )}
+          {tab === "social" && (
+            <SocialScreen
+              onFriendClick={setActiveFriend}
+              onShare={() => showToast("Enlace copiado ✅")}
+            />
+          )}
           {tab === "map" && <MapScreen />}
           {tab === "scan" && <ScanScreen />}
           {tab === "profile" && <ProfileScreen />}
@@ -809,6 +1025,9 @@ export default function MesaLocalPrototype() {
             );
           })}
         </div>
+
+        <FriendModal friend={activeFriend} onClose={() => setActiveFriend(null)} />
+        <Toast message={toast} />
       </div>
     </div>
   );
